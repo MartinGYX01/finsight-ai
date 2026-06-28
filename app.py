@@ -176,15 +176,6 @@ body, .stApp {
     letter-spacing: -0.025em;
 }
 
-.hero-description {
-    margin: 0.9rem auto 0;
-    max-width: 680px;
-    color: var(--muted);
-    font-size: 18px;
-    font-weight: 400;
-    line-height: 1.65;
-}
-
 [data-testid="stForm"] {
     max-width: 900px;
     margin: 0 auto;
@@ -221,10 +212,27 @@ body, .stApp {
 [data-baseweb="input"] input,
 [data-baseweb="select"] *,
 [data-baseweb="popover"] * {
-    color: #111827 !important;
-    -webkit-text-fill-color: #111827 !important;
+    color: #111111 !important;
+    -webkit-text-fill-color: #111111 !important;
     font-size: 0.95rem !important;
     opacity: 1 !important;
+}
+
+[data-baseweb="popover"],
+[data-baseweb="popover"] > div,
+[role="listbox"],
+[role="option"] {
+    background: #ffffff !important;
+    color: #111111 !important;
+    -webkit-text-fill-color: #111111 !important;
+    opacity: 1 !important;
+}
+
+[role="option"]:hover,
+[role="option"][aria-selected="true"] {
+    background: #f4f4f5 !important;
+    color: #111111 !important;
+    -webkit-text-fill-color: #111111 !important;
 }
 
 [data-baseweb="input"] input::placeholder {
@@ -475,6 +483,27 @@ body, .stApp {
     transition: transform 0.22s ease, box-shadow 0.22s ease;
 }
 
+[data-testid="stMetric"] * {
+    opacity: 1 !important;
+}
+
+[data-testid="stMetric"] label,
+[data-testid="stMetric"] [data-testid="stMetricLabel"],
+[data-testid="stMetricLabel"] *,
+.metric-label {
+    color: #52525b !important;
+    -webkit-text-fill-color: #52525b !important;
+}
+
+[data-testid="stMetric"] [data-testid="stMetricValue"],
+[data-testid="stMetricValue"] *,
+.metric-value {
+    color: #18181b !important;
+    -webkit-text-fill-color: #18181b !important;
+    opacity: 1 !important;
+    font-weight: 650 !important;
+}
+
 [data-testid="stMetric"]:hover {
     transform: translateY(-2px);
     box-shadow: 0 8px 18px rgba(24, 24, 27, 0.055);
@@ -612,13 +641,6 @@ body, .stApp {
         max-width: 520px;
         font-size: clamp(1.25rem, 5.4vw, 1.5rem);
         line-height: 1.25;
-    }
-
-    .hero-description {
-        max-width: 500px;
-        margin-top: 0.65rem;
-        font-size: 0.98rem;
-        line-height: 1.65;
     }
 
     [data-testid="stForm"] {
@@ -807,11 +829,6 @@ body, .stApp {
     .hero-subtitle {
         font-size: 1.22rem;
         line-height: 1.25;
-    }
-
-    .hero-description {
-        font-size: 0.94rem;
-        line-height: 1.65;
     }
 
     [data-testid="stForm"] {
@@ -1406,7 +1423,6 @@ if language == "zh":
         <style>
         .hero-zh .student-badge,
         .hero-zh .hero-subtitle,
-        .hero-zh .hero-description,
         .metric-label,
         .eyebrow,
         [data-testid="stForm"] label {
@@ -1432,9 +1448,6 @@ st.markdown(
         <div class="student-badge">{html.escape(text(language, "student_badge"))}</div>
         <h1 class="hero-title">FinSight AI</h1>
         <p class="hero-subtitle">{html.escape(text(language, "subtitle"))}</p>
-        <p class="hero-description">
-            {html.escape(text(language, "description"))}
-        </p>
     </section>
     """,
     unsafe_allow_html=True,
