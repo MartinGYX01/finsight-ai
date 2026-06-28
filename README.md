@@ -1,27 +1,35 @@
-# FinSight AI V3
+# FinSight AI V7
 
 FinSight AI is a modern Finance + AI research application created as a FinTech
 student portfolio project. It turns a global stock ticker into a currency-aware
 dashboard, transparent risk screen, recent-news view, and detailed educational
 research report.
 
-The interface uses an original premium minimalist design inspired by modern
-product websites. It does not copy Apple branding, assets, or layouts.
+The interface uses a restrained editorial finance design with warm off-white
+surfaces, refined typography, quiet borders, and a single charcoal accent.
+It does not copy Apple branding, assets, or layouts.
+Users can switch the full interface and research report between English and
+simplified Chinese.
 
 > This report is generated for educational purposes only and does not constitute
 > financial advice.
 
-## Version 3 highlights
+## Version 7 highlights
 
-- Premium responsive Streamlit interface with soft gradients, glass effects,
-  rounded cards, subtle shadows, and CSS animation
+- Premium responsive Streamlit interface with restrained editorial styling,
+  cleaner typography, balanced spacing, subtle borders, and lightweight motion
+- English / 中文 language switch remembered for the current session
+- Bilingual OpenAI reports and bilingual local template fallback reports
+- Professional simplified-Chinese financial terminology throughout the report
 - Dedicated desktop, tablet, mobile, and small-phone breakpoints at 1024px,
   768px, and 480px
 - Mobile-first stacking for the search form, metric cards, financial cards, and
   content columns, with horizontally scrollable tabs
-- Touch-safe hover behavior, overflow protection, responsive charts, and a
-  compact article reading layout on phones
-- Hero badge: **Made by a FinTech Student**
+- Higher-contrast mobile text, touch-safe controls, reduced visual effects,
+  Safari bottom spacing, and a compact article reading layout on phones
+- Lightweight mobile chart with no Plotly toolbar, no chart animation, fixed
+  zoom, and weekly close resampling for 5-year or longer periods
+- Hero badge: **Designed by a UCSI FinTech Student**
 - Global currency handling for prices, charts, market cap, and statements
 - Detailed 13-part analytical report plus a news and sentiment section
 - Optional OpenAI-powered report of approximately 900–1,500 words
@@ -31,7 +39,8 @@ product websites. It does not copy Apple branding, assets, or layouts.
 - Five-item investor watchlist and educational suitability analysis
 - Recent Yahoo Finance headlines with publisher, date, link, and transparent
   keyword-based sentiment
-- Downloadable Markdown report named `finsight_ai_report_{ticker}.md`
+- Language-aware Markdown downloads such as
+  `finsight_ai_report_AAPL_en.md` and `finsight_ai_report_AAPL_zh.md`
 
 ## Dashboard tabs
 
@@ -62,6 +71,10 @@ Both AI and template reports cover:
 
 FinSight never provides a direct buy, sell, or hold recommendation.
 
+When **中文** is selected, every template section is generated directly in
+simplified Chinese even when no OpenAI key is configured. Company names, stock
+tickers, financial values, and currency codes remain unchanged.
+
 ## Project structure
 
 ```text
@@ -76,6 +89,7 @@ finsight_ai/
     ├── ai_report.py
     ├── data_fetcher.py
     ├── financial_ratios.py
+    ├── i18n.py
     ├── news_analysis.py
     ├── report_generator.py
     └── risk_analysis.py
@@ -254,3 +268,13 @@ by the project include:
 
 If a trading currency is unavailable, the chart uses the neutral label `Price`
 and does not assume USD.
+
+## Mobile performance notes
+
+- The Plotly modebar and scroll zoom are disabled.
+- The chart uses a simple high-contrast line and a compact phone layout.
+- Five-year, ten-year, and maximum histories are reduced to weekly closing
+  prices for display, while the underlying research calculations continue to
+  use the fetched historical data.
+- Mobile CSS removes expensive blur effects, reduces shadows and spacing,
+  disables touch hover lifts, and adds bottom padding for mobile Safari.

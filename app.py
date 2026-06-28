@@ -1,4 +1,4 @@
-"""FinSight AI V3 - premium, beginner-friendly global stock research."""
+"""FinSight AI V7 - premium, beginner-friendly global stock research."""
 
 from __future__ import annotations
 
@@ -20,6 +20,12 @@ from modules.data_fetcher import (
     fetch_stock_history,
 )
 from modules.financial_ratios import calculate_financial_ratios
+from modules.i18n import (
+    risk_label,
+    sentiment_label,
+    text,
+    translate_risk_breakdown,
+)
 from modules.news_analysis import analyze_news_sentiment, label_headline_sentiment
 from modules.report_generator import (
     build_investor_watchlist,
@@ -67,11 +73,14 @@ configure_optional_openai_settings()
 PREMIUM_CSS = """
 <style>
 :root {
-    --ink: #111214;
-    --muted: #686b73;
-    --line: rgba(17, 18, 20, 0.09);
-    --surface: rgba(255, 255, 255, 0.82);
-    --soft: #f5f6f8;
+    --ink: #18181b;
+    --text: #27272a;
+    --muted: #52525b;
+    --quiet: #71717a;
+    --line: #e5e5e5;
+    --surface: #ffffff;
+    --soft: #f7f7f5;
+    --accent: #18181b;
 }
 
 html {
@@ -86,12 +95,12 @@ body, .stApp {
     width: 100%;
     max-width: 100%;
     overflow-x: hidden;
-    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter",
-        "Segoe UI", sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display",
+        "SF Pro Text", "Inter", "Segoe UI", "Roboto", "Helvetica Neue",
+        Arial, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei",
+        "Noto Sans CJK SC", sans-serif;
     color: var(--ink);
-    background:
-        radial-gradient(circle at 50% -10%, rgba(185, 205, 255, 0.42), transparent 34rem),
-        linear-gradient(180deg, #fbfcff 0%, #ffffff 30%, #f7f8fa 100%);
+    background: #f7f7f5;
 }
 
 [data-testid="stHeader"], [data-testid="stToolbar"], #MainMenu, footer {
@@ -99,10 +108,10 @@ body, .stApp {
 }
 
 .block-container {
-    max-width: 1180px;
-    padding-top: 2.6rem;
-    padding-bottom: 3rem;
-    animation: pageEntrance 0.65s ease-out both;
+    max-width: 1140px;
+    padding-top: 1.2rem;
+    padding-bottom: 3.25rem;
+    animation: pageEntrance 0.35s ease-out both;
 }
 
 @keyframes pageEntrance {
@@ -111,31 +120,33 @@ body, .stApp {
 }
 
 @keyframes fadeInUp {
-    from { opacity: 0; transform: translateY(18px); }
+    from { opacity: 0; transform: translateY(10px); }
     to { opacity: 1; transform: translateY(0); }
 }
 
 .hero {
+    position: relative;
+    overflow: hidden;
     text-align: center;
-    padding: 3.2rem 1rem 2rem;
-    animation: fadeInUp 0.75s ease-out both;
+    max-width: 920px;
+    margin: 0 auto 1.45rem;
+    padding: clamp(3.3rem, 7vw, 5.6rem) 1rem 1.6rem;
+    animation: fadeInUp 0.42s ease-out both;
 }
 
 .student-badge {
     display: inline-flex;
     align-items: center;
     gap: 0.45rem;
-    padding: 0.48rem 0.9rem;
-    border: 1px solid rgba(17, 18, 20, 0.10);
+    padding: 0.44rem 0.78rem;
+    border: 1px solid var(--line);
     border-radius: 999px;
-    background: rgba(255, 255, 255, 0.72);
-    box-shadow: 0 8px 30px rgba(18, 23, 38, 0.06);
-    color: #464951;
-    font-size: 0.78rem;
-    font-weight: 650;
-    letter-spacing: 0.04em;
+    background: #ffffff;
+    color: var(--muted);
+    font-size: 0.76rem;
+    font-weight: 600;
+    letter-spacing: 0.035em;
     text-transform: uppercase;
-    backdrop-filter: blur(18px);
 }
 
 .student-badge::before {
@@ -143,109 +154,136 @@ body, .stApp {
     width: 7px;
     height: 7px;
     border-radius: 50%;
-    background: #111214;
+    background: #18181b;
 }
 
-.hero h1 {
-    margin: 1.15rem 0 0.7rem;
-    font-size: clamp(3.6rem, 8vw, 6.8rem);
+.hero-title {
+    margin: 1.15rem 0 0.85rem;
+    color: var(--ink);
+    font-size: clamp(56px, 7vw, 96px);
     line-height: 0.96;
-    letter-spacing: -0.072em;
-    font-weight: 760;
-    background: linear-gradient(145deg, #090a0c 25%, #545965 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
+    letter-spacing: -0.052em;
+    font-weight: 730;
 }
 
-.hero .subtitle {
+.hero-subtitle {
     margin: 0 auto;
-    max-width: 760px;
-    font-size: clamp(1.2rem, 2.4vw, 1.75rem);
-    line-height: 1.35;
-    font-weight: 560;
+    max-width: 820px;
+    color: var(--ink);
+    font-size: clamp(24px, 2.5vw, 34px);
+    line-height: 1.2;
+    font-weight: 600;
     letter-spacing: -0.025em;
-    color: #2b2e34;
 }
 
-.hero .description {
-    margin: 0.8rem auto 0;
-    max-width: 660px;
+.hero-description {
+    margin: 0.9rem auto 0;
+    max-width: 680px;
     color: var(--muted);
-    font-size: 1.02rem;
-    line-height: 1.7;
+    font-size: 18px;
+    font-weight: 400;
+    line-height: 1.65;
 }
 
 [data-testid="stForm"] {
-    padding: 1.25rem 1.35rem 1.35rem;
-    border: 1px solid rgba(255, 255, 255, 0.82);
-    border-radius: 26px;
-    background: rgba(255, 255, 255, 0.64);
-    box-shadow: 0 24px 70px rgba(32, 39, 59, 0.12);
-    backdrop-filter: blur(24px);
-    animation: fadeInUp 0.8s 0.08s ease-out both;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 1rem;
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    background: #ffffff;
+    box-shadow: 0 10px 28px rgba(24, 24, 27, 0.045);
+    animation: fadeInUp 0.38s 0.04s ease-out both;
 }
 
 [data-testid="stForm"] label {
-    color: #555961 !important;
+    min-height: 1.28rem;
+    color: #3f3f46 !important;
     font-size: 0.78rem !important;
-    font-weight: 650 !important;
-    letter-spacing: 0.025em;
+    font-weight: 600 !important;
+    letter-spacing: 0.015em;
 }
 
-[data-testid="stFormSubmitButton"] { margin-top: 1.68rem; }
+[data-testid="stFormSubmitButton"] { margin-top: 2.54rem; }
 
+[data-baseweb="input"],
 [data-baseweb="input"] > div,
+[data-baseweb="select"],
 [data-baseweb="select"] > div {
-    min-height: 3.25rem;
-    border: 1px solid rgba(17, 18, 20, 0.10) !important;
+    min-height: 3.5rem;
+    height: 3.5rem;
+    border: 1px solid #d8d8d8 !important;
     border-radius: 15px !important;
-    background: rgba(248, 249, 251, 0.9) !important;
+    background: #ffffff !important;
     transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
+[data-baseweb="input"] input,
+[data-baseweb="select"] *,
+[data-baseweb="popover"] * {
+    color: #111827 !important;
+    -webkit-text-fill-color: #111827 !important;
+    font-size: 0.95rem !important;
+    opacity: 1 !important;
+}
+
+[data-baseweb="input"] input::placeholder {
+    color: #71717a !important;
+    -webkit-text-fill-color: #71717a !important;
+    opacity: 1 !important;
+}
+
+[data-baseweb="input"]:focus-within,
 [data-baseweb="input"] > div:focus-within,
+[data-baseweb="select"]:focus-within,
 [data-baseweb="select"] > div:focus-within {
-    border-color: rgba(17, 18, 20, 0.32) !important;
-    box-shadow: 0 0 0 4px rgba(17, 18, 20, 0.045) !important;
+    border-color: #18181b !important;
+    box-shadow: 0 0 0 3px rgba(24, 24, 27, 0.08) !important;
 }
 
 .stButton > button, .stDownloadButton > button, [data-testid="stFormSubmitButton"] button {
-    min-height: 3.25rem;
+    min-height: 3.5rem;
+    height: 3.5rem;
     border: 0 !important;
-    border-radius: 999px !important;
-    background: linear-gradient(135deg, #101114 0%, #2b2f37 100%) !important;
+    border-radius: 15px !important;
+    background: #18181b !important;
     color: white !important;
-    font-weight: 650 !important;
-    box-shadow: 0 10px 25px rgba(15, 16, 18, 0.18);
-    transition: transform 0.22s ease, box-shadow 0.22s ease, filter 0.22s ease;
+    font-weight: 600 !important;
+    font-size: 0.95rem !important;
+    letter-spacing: -0.005em;
+    box-shadow: none;
+    transition: transform 0.18s ease, background-color 0.18s ease, box-shadow 0.18s ease;
 }
 
 .stButton > button:hover, .stDownloadButton > button:hover,
 [data-testid="stFormSubmitButton"] button:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 15px 34px rgba(15, 16, 18, 0.24);
-    filter: brightness(1.08);
+    transform: translateY(-1px);
+    background: #27272a !important;
+    box-shadow: 0 8px 18px rgba(24, 24, 27, 0.12);
+    filter: none;
 }
 
 .result-header {
-    margin-top: 3.4rem;
+    margin-top: 3.2rem;
     padding: 0 0.2rem 1rem;
     animation: fadeInUp 0.6s ease-out both;
 }
 
 .eyebrow {
-    color: #777b84;
+    color: var(--quiet);
     font-size: 0.76rem;
-    font-weight: 700;
-    letter-spacing: 0.11em;
+    font-weight: 600;
+    letter-spacing: 0.06em;
     text-transform: uppercase;
 }
 
 .result-header h2 {
     margin: 0.35rem 0 0.35rem;
-    font-size: clamp(2rem, 4vw, 3.3rem);
-    letter-spacing: -0.045em;
-    line-height: 1.08;
+    color: var(--ink);
+    font-size: clamp(1.85rem, 3.4vw, 2.35rem);
+    font-weight: 650;
+    letter-spacing: -0.035em;
+    line-height: 1.15;
 }
 
 .result-header p { color: var(--muted); margin: 0; }
@@ -253,54 +291,46 @@ body, .stApp {
 .metric-grid {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 1rem;
+    gap: 0.9rem;
     margin: 0.8rem 0 1.8rem;
 }
 
 .premium-card {
     position: relative;
     overflow: hidden;
-    min-height: 156px;
-    padding: 1.35rem;
+    min-height: 150px;
+    padding: 1.25rem;
     border: 1px solid var(--line);
-    border-radius: 24px;
+    border-radius: 18px;
     background: var(--surface);
-    box-shadow: 0 14px 38px rgba(31, 38, 57, 0.07);
-    backdrop-filter: blur(18px);
-    transition: transform 0.26s ease, box-shadow 0.26s ease, border-color 0.26s ease;
-    animation: fadeInUp 0.65s ease-out both;
+    box-shadow: 0 6px 16px rgba(24, 24, 27, 0.035);
+    transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+    animation: fadeInUp 0.35s ease-out both;
 }
 
 .premium-card::after {
-    content: "";
-    position: absolute;
-    right: -34px;
-    bottom: -48px;
-    width: 110px;
-    height: 110px;
-    border-radius: 50%;
-    background: radial-gradient(circle, rgba(151, 176, 234, 0.14), transparent 70%);
+    display: none;
 }
 
 .premium-card:hover {
-    transform: translateY(-5px);
-    border-color: rgba(17, 18, 20, 0.16);
-    box-shadow: 0 22px 50px rgba(31, 38, 57, 0.11);
+    transform: translateY(-2px);
+    border-color: #d4d4d8;
+    box-shadow: 0 10px 22px rgba(24, 24, 27, 0.055);
 }
 
 .metric-label {
-    color: #737780;
+    color: var(--quiet);
     font-size: 0.76rem;
-    font-weight: 700;
-    letter-spacing: 0.08em;
+    font-weight: 600;
+    letter-spacing: 0.055em;
     text-transform: uppercase;
 }
 
 .metric-value {
     margin-top: 0.65rem;
-    color: #121316;
-    font-size: clamp(1.5rem, 2.5vw, 2.15rem);
-    font-weight: 720;
+    color: var(--ink);
+    font-size: clamp(2.1rem, 3.2vw, 2.85rem);
+    font-weight: 650;
     letter-spacing: -0.04em;
     line-height: 1.12;
     max-width: 100%;
@@ -311,7 +341,7 @@ body, .stApp {
 
 .metric-note {
     margin-top: 0.55rem;
-    color: #868a92;
+    color: var(--quiet);
     font-size: 0.78rem;
 }
 
@@ -327,13 +357,13 @@ body, .stApp {
     margin-top: 0.8rem;
     overflow: hidden;
     border-radius: 999px;
-    background: #e7e9ed;
+    background: #ececec;
 }
 
 .score-fill {
     height: 100%;
     border-radius: inherit;
-    background: linear-gradient(90deg, #444a55, #111214);
+    background: #18181b;
 }
 
 .risk-pill, .sentiment-pill, .level-pill {
@@ -373,10 +403,10 @@ body, .stApp {
     overflow: hidden;
     padding: 0.8rem;
     border: 1px solid var(--line);
-    border-radius: 26px;
-    background: rgba(255, 255, 255, 0.84);
-    box-shadow: 0 16px 44px rgba(31, 38, 57, 0.065);
-    animation: fadeInUp 0.7s ease-out both;
+    border-radius: 20px;
+    background: #ffffff;
+    box-shadow: 0 6px 18px rgba(24, 24, 27, 0.035);
+    animation: fadeInUp 0.35s ease-out both;
 }
 
 .js-plotly-plot, .plot-container, .svg-container {
@@ -396,7 +426,7 @@ body, .stApp {
     gap: 0.35rem;
     padding: 0.35rem;
     border-radius: 16px;
-    background: #f0f1f3;
+    background: #eeeeec;
 }
 
 .stTabs [data-baseweb="tab-list"]::-webkit-scrollbar { display: none; }
@@ -407,14 +437,14 @@ body, .stApp {
     height: 2.8rem;
     padding: 0 1rem;
     border-radius: 12px;
-    color: #656971;
-    font-weight: 620;
+    color: var(--muted);
+    font-weight: 600;
 }
 
 .stTabs [aria-selected="true"] {
-    color: #151619 !important;
+    color: var(--ink) !important;
     background: white !important;
-    box-shadow: 0 5px 16px rgba(24, 29, 43, 0.08);
+    box-shadow: 0 2px 8px rgba(24, 24, 27, 0.06);
 }
 
 .stTabs [data-baseweb="tab-highlight"],
@@ -425,7 +455,7 @@ body, .stApp {
     max-width: 100%;
     overflow-x: hidden;
     padding-top: 1.4rem;
-    animation: fadeInUp 0.45s ease-out both;
+    animation: fadeInUp 0.25s ease-out both;
 }
 
 [data-testid="stDataFrame"], [data-testid="stTable"] {
@@ -439,23 +469,23 @@ body, .stApp {
     min-height: 132px;
     padding: 1.1rem 1.2rem;
     border: 1px solid var(--line);
-    border-radius: 20px;
-    background: rgba(255,255,255,0.82);
-    box-shadow: 0 10px 28px rgba(31, 38, 57, 0.055);
+    border-radius: 18px;
+    background: #ffffff;
+    box-shadow: 0 4px 14px rgba(24, 24, 27, 0.03);
     transition: transform 0.22s ease, box-shadow 0.22s ease;
 }
 
 [data-testid="stMetric"]:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 16px 34px rgba(31, 38, 57, 0.09);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 18px rgba(24, 24, 27, 0.055);
 }
 
 .section-card, .risk-card, .news-card {
     padding: 1.25rem 1.35rem;
     border: 1px solid var(--line);
-    border-radius: 20px;
-    background: rgba(255,255,255,0.8);
-    box-shadow: 0 10px 28px rgba(31, 38, 57, 0.05);
+    border-radius: 18px;
+    background: #ffffff;
+    box-shadow: 0 4px 14px rgba(24, 24, 27, 0.03);
 }
 
 .risk-grid, .news-grid {
@@ -470,8 +500,8 @@ body, .stApp {
 }
 
 .risk-card:hover, .news-card:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 16px 36px rgba(31, 38, 57, 0.09);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 18px rgba(24, 24, 27, 0.055);
 }
 
 .risk-card h4, .news-card h4 {
@@ -488,7 +518,7 @@ body, .stApp {
 }
 
 .news-card a {
-    color: #151619;
+    color: var(--ink);
     text-decoration: none;
 }
 
@@ -499,9 +529,9 @@ body, .stApp {
     margin: 0 auto;
     padding: clamp(1.3rem, 4vw, 3.25rem) !important;
     border: 1px solid var(--line) !important;
-    border-radius: 26px !important;
-    background: rgba(255,255,255,0.92) !important;
-    box-shadow: 0 18px 55px rgba(31, 38, 57, 0.075);
+    border-radius: 20px !important;
+    background: #ffffff !important;
+    box-shadow: 0 6px 18px rgba(24, 24, 27, 0.035);
 }
 
 .st-key-report_article h2 {
@@ -519,7 +549,7 @@ body, .stApp {
 }
 
 .st-key-report_article p, .st-key-report_article li {
-    color: #383b42;
+    color: var(--text);
     font-size: 1rem;
     line-height: 1.78;
 }
@@ -542,9 +572,11 @@ body, .stApp {
         padding: 1.2rem 1.5rem 2.5rem;
     }
 
-    .hero { padding: 2.5rem 0.75rem 1.8rem; }
-    .hero h1 { font-size: clamp(4.3rem, 9vw, 5.4rem); }
-    .hero .subtitle { max-width: 680px; }
+    .hero {
+        padding: 3rem 1rem 1.45rem;
+    }
+    .hero-title { font-size: clamp(3.5rem, 9vw, 5.4rem); }
+    .hero-subtitle { max-width: 680px; }
 
     .metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 
@@ -555,39 +587,53 @@ body, .stApp {
 }
 
 @media (max-width: 768px) {
+    body, .stApp {
+        color: var(--ink);
+        background: #f7f7f5;
+    }
+
     .block-container {
         width: 100%;
-        padding: 0.75rem 1rem 2rem;
+        padding: 0.75rem 1rem 6rem;
     }
 
     .hero {
-        padding: 1.65rem 0.25rem 1.35rem;
+        padding: 2.25rem 0.25rem 1.2rem;
     }
 
-    .hero h1 {
+    .hero-title {
         margin-top: 0.9rem;
-        font-size: clamp(3.25rem, 15vw, 4.35rem);
-        letter-spacing: -0.065em;
+        font-size: clamp(2.75rem, 13vw, 3.5rem);
+        letter-spacing: -0.045em;
+        line-height: 0.98;
     }
 
-    .hero .subtitle {
+    .hero-subtitle {
         max-width: 520px;
-        font-size: 1.15rem;
-        line-height: 1.4;
+        font-size: clamp(1.25rem, 5.4vw, 1.5rem);
+        line-height: 1.25;
     }
 
-    .hero .description {
+    .hero-description {
         max-width: 500px;
         margin-top: 0.65rem;
-        font-size: 0.95rem;
-        line-height: 1.6;
+        font-size: 0.98rem;
+        line-height: 1.65;
     }
 
     [data-testid="stForm"] {
         width: 100%;
+        margin-top: 0;
         padding: 1rem;
-        border-radius: 22px;
-        box-shadow: 0 15px 40px rgba(32, 39, 59, 0.09);
+        border-radius: 18px;
+        background: #ffffff;
+        box-shadow: 0 4px 14px rgba(24, 24, 27, 0.035);
+    }
+
+    [data-testid="stForm"] label,
+    [data-testid="stWidgetLabel"] p {
+        color: #3f3f46 !important;
+        opacity: 1 !important;
     }
 
     [data-testid="stHorizontalBlock"] {
@@ -633,16 +679,28 @@ body, .stApp {
         min-height: 132px;
         padding: 1.15rem;
         border-radius: 20px;
-        box-shadow: 0 9px 24px rgba(31, 38, 57, 0.055);
+        box-shadow: 0 3px 10px rgba(24, 24, 27, 0.03);
+        background: #ffffff;
     }
 
-    .metric-value { font-size: clamp(1.6rem, 8vw, 2rem); }
+    .metric-value { font-size: clamp(2rem, 9vw, 2.4rem); }
+    .metric-label, .eyebrow { color: #52525b; opacity: 1; }
+    .metric-note, .result-header p { color: #71717a; opacity: 1; }
 
     [data-testid="stPlotlyChart"] {
         width: 100%;
         padding: 0.35rem;
-        border-radius: 20px;
-        box-shadow: 0 10px 28px rgba(31, 38, 57, 0.05);
+        border-radius: 18px;
+        background: #ffffff;
+        box-shadow: 0 3px 10px rgba(24, 24, 27, 0.03);
+        animation: none;
+    }
+
+    [data-testid="stPlotlyChart"] .js-plotly-plot,
+    [data-testid="stPlotlyChart"] .plot-container,
+    [data-testid="stPlotlyChart"] .svg-container {
+        height: 310px !important;
+        min-height: 310px !important;
     }
 
     .stTabs [data-baseweb="tab-list"] {
@@ -654,9 +712,14 @@ body, .stApp {
         height: 2.65rem;
         padding: 0 0.85rem;
         font-size: 0.84rem;
+        color: #3f3f46;
+        opacity: 1;
     }
 
-    .stTabs [data-baseweb="tab-panel"] { padding-top: 1rem; }
+    .stTabs [data-baseweb="tab-panel"] {
+        padding-top: 1rem;
+        padding-bottom: 2rem;
+    }
 
     .risk-grid, .news-grid { grid-template-columns: 1fr; }
 
@@ -668,8 +731,23 @@ body, .stApp {
 
     .section-card, .risk-card, .news-card {
         padding: 1.05rem;
-        border-radius: 18px;
-        box-shadow: 0 7px 20px rgba(31, 38, 57, 0.045);
+        border-radius: 16px;
+        background: #ffffff;
+        box-shadow: 0 2px 8px rgba(24, 24, 27, 0.025);
+    }
+
+    h1, h2, h3, h4, h5, h6,
+    .risk-card h4, .news-card h4 {
+        color: var(--ink) !important;
+        opacity: 1 !important;
+    }
+
+    p, li, .stMarkdown, .stCaption, [data-testid="stCaptionContainer"] {
+        opacity: 1 !important;
+    }
+
+    .risk-card p, .news-card p, [data-testid="stCaptionContainer"] p {
+        color: #3f3f46 !important;
     }
 
     .st-key-report_article {
@@ -677,8 +755,9 @@ body, .stApp {
         max-width: 100%;
         padding: 1.3rem !important;
         border-radius: 20px !important;
-        box-shadow: 0 10px 30px rgba(31, 38, 57, 0.05);
+        box-shadow: 0 3px 10px rgba(24, 24, 27, 0.03);
         overflow-wrap: anywhere;
+        background: #ffffff !important;
     }
 
     .st-key-report_article h2 {
@@ -697,33 +776,42 @@ body, .stApp {
         padding: 1.25rem 0.5rem 0;
         font-size: 0.74rem;
         line-height: 1.55;
+        color: #6b7280;
+    }
+
+    .hero, .result-header, .premium-card,
+    .stTabs [data-baseweb="tab-panel"] { animation: none; }
+
+    @keyframes mobileFade {
+        from { opacity: 0; }
+        to { opacity: 1; }
     }
 }
 
 @media (max-width: 480px) {
-    .block-container { padding: 0.5rem 0.75rem 1.6rem; }
+    .block-container { padding: 0.5rem 0.75rem 6.5rem; }
 
-    .hero { padding: 1.25rem 0 1rem; }
+    .hero { padding: 1.8rem 0 1rem; }
 
     .student-badge {
         padding: 0.42rem 0.68rem;
         font-size: 0.66rem;
-        letter-spacing: 0.035em;
+        letter-spacing: 0.02em;
     }
 
-    .hero h1 {
-        font-size: clamp(3rem, 16vw, 3.65rem);
-        letter-spacing: -0.06em;
+    .hero-title {
+        font-size: clamp(2.75rem, 14.5vw, 3.35rem);
+        letter-spacing: -0.042em;
     }
 
-    .hero .subtitle {
-        font-size: 1.03rem;
-        line-height: 1.42;
+    .hero-subtitle {
+        font-size: 1.22rem;
+        line-height: 1.25;
     }
 
-    .hero .description {
-        font-size: 0.89rem;
-        line-height: 1.55;
+    .hero-description {
+        font-size: 0.94rem;
+        line-height: 1.65;
     }
 
     [data-testid="stForm"] {
@@ -840,19 +928,29 @@ def create_price_chart(
     history: pd.DataFrame,
     company_name: str,
     currency: str | None,
+    period: str,
+    language: str,
 ) -> go.Figure:
-    """Build an understated interactive Plotly closing-price chart."""
-    y_axis_title = f"Price ({currency})" if currency else "Price"
+    """Build a lightweight, high-contrast Plotly closing-price chart."""
+    chart_history = history[["Close"]].dropna()
+    # Long daily histories are expensive to draw on phones. Weekly closes retain
+    # the useful trend while greatly reducing the number of browser data points.
+    if period in {"5y", "10y", "max"}:
+        chart_history = chart_history.resample("W-FRI").last().dropna()
+
+    y_axis_title = (
+        f"{text(language, 'price')} ({currency})"
+        if currency
+        else text(language, "price")
+    )
     hover_prefix = f"{currency} " if currency else ""
     figure = go.Figure(
         go.Scatter(
-            x=history.index,
-            y=history["Close"],
+            x=chart_history.index,
+            y=chart_history["Close"],
             mode="lines",
-            name="Closing price",
-            fill="tozeroy",
-            fillcolor="rgba(92, 112, 160, 0.07)",
-            line={"color": "#252a33", "width": 2.4},
+            name=text(language, "closing_price"),
+            line={"color": "#18181b", "width": 2.2, "simplify": True},
             hovertemplate=(
                 f"%{{x|%b %d, %Y}}<br>{hover_prefix}"
                 "%{y:,.2f}<extra></extra>"
@@ -860,20 +958,40 @@ def create_price_chart(
         )
     )
     figure.update_layout(
-        title={"text": f"{company_name} · price history", "font": {"size": 18}},
-        xaxis_title="Date",
-        yaxis_title=y_axis_title,
-        hovermode="x unified",
-        height=440,
-        margin={"l": 28, "r": 20, "t": 62, "b": 26},
-        paper_bgcolor="rgba(0,0,0,0)",
-        plot_bgcolor="rgba(0,0,0,0)",
-        font={
-            "family": '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-            "color": "#555a64",
+        title={
+            "text": f"{company_name} · {text(language, 'price_history_title')}",
+            "font": {"size": 17, "color": "#18181b"},
         },
-        xaxis={"gridcolor": "rgba(20,24,32,0.055)", "zeroline": False},
-        yaxis={"gridcolor": "rgba(20,24,32,0.055)", "zeroline": False},
+        xaxis_title=text(language, "date"),
+        yaxis_title=y_axis_title,
+        hovermode="closest",
+        height=380,
+        margin={"l": 18, "r": 12, "t": 54, "b": 18},
+        paper_bgcolor="#ffffff",
+        plot_bgcolor="#ffffff",
+        transition={"duration": 0},
+        showlegend=False,
+        font={
+            "family": (
+                '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", '
+                '"Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif'
+            ),
+            "color": "#3f3f46",
+        },
+        xaxis={
+            "gridcolor": "#eeeeee",
+            "zeroline": False,
+            "fixedrange": True,
+            "tickfont": {"color": "#52525b"},
+            "title_font": {"color": "#52525b"},
+        },
+        yaxis={
+            "gridcolor": "#eeeeee",
+            "zeroline": False,
+            "fixedrange": True,
+            "tickfont": {"color": "#52525b"},
+            "title_font": {"color": "#52525b"},
+        },
     )
     return figure
 
@@ -884,24 +1002,26 @@ def render_metric_cards(
     risk: dict[str, float | None],
     health: dict[str, Any],
     risk_classification: dict[str, str],
+    language: str,
 ) -> None:
     """Render four premium headline cards with a health progress bar."""
     currency = profile.get("currency")
     cards = [
         (
-            "Market Cap",
+            text(language, "market_cap"),
             format_money(profile.get("market_cap"), currency),
-            "Reported by Yahoo Finance",
+            text(language, "reported_yahoo"),
         ),
         (
-            "Latest Close",
+            text(language, "latest_close"),
             format_money(float(history["Close"].iloc[-1]), currency, compact=False),
-            f"Trading currency · {currency or 'Unavailable'}",
+            f"{text(language, 'trading_currency')} · "
+            f"{currency or text(language, 'unavailable')}",
         ),
         (
-            "Period Return",
+            text(language, "period_return"),
             format_percent(risk.get("period_return")),
-            "Adjusted close · selected period",
+            text(language, "adjusted_close"),
         ),
     ]
     card_html = "".join(
@@ -915,13 +1035,15 @@ def render_metric_cards(
     score = int(health["score"])
     health_card = (
         f'<div class="premium-card">'
-        f'<div class="health-row"><div class="metric-label">Health Score</div>'
+        f'<div class="health-row"><div class="metric-label">'
+        f'{html.escape(text(language, "health_score"))}</div>'
         f'<span class="risk-pill {risk_classification["css_class"]}">'
-        f'{html.escape(risk_classification["label"])}</span></div>'
+        f'{html.escape(risk_label(language, risk_classification["label"]))}</span></div>'
         f'<div class="metric-value">{score}'
         f'<span style="font-size:.9rem;color:#8a8e96"> / 100</span></div>'
         f'<div class="score-track"><div class="score-fill" style="width:{score}%">'
-        f'</div></div><div class="metric-note">Transparent screening score</div>'
+        f'</div></div><div class="metric-note">'
+        f'{html.escape(text(language, "transparent_score"))}</div>'
         f'</div>'
     )
     st.markdown(
@@ -934,10 +1056,11 @@ def render_risk_cards(risk_breakdown: list[dict[str, str]]) -> None:
     """Display the transparent risk breakdown in compact cards."""
     cards = []
     for item in risk_breakdown:
+        css_level = html.escape(item.get("css_level", item["level"]))
         level = html.escape(item["level"])
         cards.append(
             f'<div class="risk-card">'
-            f'<span class="level-pill {level}">{level}</span>'
+            f'<span class="level-pill {css_level}">{level}</span>'
             f'<h4>{html.escape(item["name"])}</h4>'
             f'<p>{html.escape(item["explanation"])}</p>'
             f'</div>'
@@ -951,18 +1074,21 @@ def render_risk_cards(risk_breakdown: list[dict[str, str]]) -> None:
 def render_news(
     news: list[dict[str, str | None]],
     sentiment: dict[str, Any],
+    language: str,
 ) -> None:
     """Show only real Yahoo headlines, with transparent keyword sentiment."""
-    label = html.escape(str(sentiment.get("label", "Neutral")))
+    english_label = str(sentiment.get("label", "Neutral"))
+    label = html.escape(english_label)
+    localized_label = html.escape(sentiment_label(language, english_label))
     st.markdown(
         f"""
         <div class="section-card">
-            <div class="eyebrow">Headline pulse</div>
-            <h3 style="margin:.45rem 0 .5rem">Market sentiment
-                <span class="sentiment-pill {label}">{label}</span>
+            <div class="eyebrow">{html.escape(text(language, "headline_pulse"))}</div>
+            <h3 style="margin:.45rem 0 .5rem">{html.escape(text(language, "market_sentiment"))}
+                <span class="sentiment-pill {label}">{localized_label}</span>
             </h3>
             <p style="color:#737780;margin:0;line-height:1.6">
-                A simple keyword label based on available headlines—not full-article analysis.
+                {html.escape(text(language, "sentiment_note"))}
             </p>
         </div>
         """,
@@ -970,15 +1096,20 @@ def render_news(
     )
 
     if not news:
-        st.info("Recent news data is not available from the current free data source.")
+        st.info(text(language, "news_unavailable"))
         return
 
     cards = []
     for article in news:
         title = html.escape(article.get("title") or "Untitled")
-        publisher = html.escape(article.get("publisher") or "Publisher unavailable")
-        date = html.escape(article.get("published_date") or "Date unavailable")
+        publisher = html.escape(
+            article.get("publisher") or text(language, "publisher_unavailable")
+        )
+        date = html.escape(
+            article.get("published_date") or text(language, "date_unavailable")
+        )
         item_label = label_headline_sentiment(article.get("title") or "")
+        item_label_display = sentiment_label(language, item_label)
         safe_url = article.get("link")
         linked_title = title
         if safe_url and safe_url.startswith(("https://", "http://")):
@@ -988,7 +1119,8 @@ def render_news(
             )
         cards.append(
             f'<div class="news-card">'
-            f'<span class="sentiment-pill {item_label}">{item_label}</span>'
+            f'<span class="sentiment-pill {item_label}">'
+            f'{html.escape(item_label_display)}</span>'
             f'<h4>{linked_title}</h4>'
             f'<p>{publisher} · {date}</p>'
             f'</div>'
@@ -997,18 +1129,52 @@ def render_news(
         f'<div class="news-grid">{"".join(cards)}</div>',
         unsafe_allow_html=True,
     )
-    st.caption("Headlines, publishers, dates, and links are supplied by Yahoo Finance.")
+    st.caption(text(language, "headlines_source"))
 
 
-def show_dashboard(ticker: str, period: str) -> None:
+HEALTH_EXPLANATIONS_ZH = {
+    "Profitability data unavailable: no score change.": "盈利能力数据缺失：评分不变。",
+    "Strong net profit margin: +15.": "净利润率较强：+15。",
+    "Positive net profit margin: +8.": "净利润率为正：+8。",
+    "Negative net profit margin: -15.": "净利润率为负：-15。",
+    "Leverage data unavailable: no score change.": "杠杆数据缺失：评分不变。",
+    "Low debt relative to assets: +12.": "债务相对总资产较低：+12。",
+    "Moderate debt relative to assets: +4.": "债务相对总资产处于中等水平：+4。",
+    "High debt relative to assets: -12.": "债务相对总资产较高：-12。",
+    "Revenue growth data unavailable: no score change.": "营收增长数据缺失：评分不变。",
+    "Revenue growth of at least 10%: +12.": "营收增长至少 10%：+12。",
+    "Revenue is stable or growing: +5.": "营业收入稳定或增长：+5。",
+    "Revenue declined year over year: -10.": "营业收入同比下降：-10。",
+    "Operating cash-flow data unavailable: no score change.": "经营现金流数据缺失：评分不变。",
+    "Positive operating cash flow: +8.": "经营现金流为正：+8。",
+    "Negative operating cash flow: -8.": "经营现金流为负：-8。",
+    "Positive stock return over the selected period: +3.": "所选周期股票收益为正：+3。",
+    "Negative stock return over the selected period: -3.": "所选周期股票收益为负：-3。",
+}
+
+
+def translate_health_explanation(explanation: str, language: str) -> str:
+    """Translate deterministic score explanations for the Chinese interface."""
+    if language == "zh":
+        return HEALTH_EXPLANATIONS_ZH.get(explanation, explanation)
+    return explanation
+
+
+def show_dashboard(ticker: str, period: str, language: str) -> None:
     """Load data, calculate research signals, and render the full dashboard."""
     profile, history, financials, news = load_stock_data(ticker, period)
     ratios = calculate_financial_ratios(financials)
     risk = analyze_risk(history, profile.get("beta"))
     health = calculate_financial_health_score(ratios, financials, history)
     risk_classification = classify_risk_level(int(health["score"]))
-    risk_breakdown = build_risk_breakdown(ratios, risk, profile)
+    risk_breakdown = translate_risk_breakdown(
+        build_risk_breakdown(ratios, risk, profile), language
+    )
     sentiment = analyze_news_sentiment(news)
+    sentiment["localized_label"] = sentiment_label(
+        language, str(sentiment.get("label", "Neutral"))
+    )
+    localized_risk_level = risk_label(language, risk_classification["label"])
 
     template_report = generate_research_report(
         ticker=ticker,
@@ -1018,13 +1184,14 @@ def show_dashboard(ticker: str, period: str) -> None:
         ratios=ratios,
         risk=risk,
         health=health,
-        risk_level=risk_classification["label"],
+        risk_level=localized_risk_level,
         risk_breakdown=risk_breakdown,
         news=news,
         news_sentiment=sentiment,
+        language=language,
     )
     report_markdown = report_to_markdown(template_report)
-    report_source = "Detailed template report"
+    report_source = text(language, "template_source")
     ai_error = None
 
     if has_openai_api_key():
@@ -1037,19 +1204,18 @@ def show_dashboard(ticker: str, period: str) -> None:
                 ratios=ratios,
                 risk=risk,
                 health=health,
-                risk_level=risk_classification["label"],
+                risk_level=localized_risk_level,
                 risk_breakdown=risk_breakdown,
                 news=news,
                 news_sentiment=sentiment,
+                language=language,
             )
             report_source = (
-                f"AI-generated research · {os.getenv('OPENAI_MODEL', 'gpt-5.5')}"
+                f"{text(language, 'ai_source')} · "
+                f"{os.getenv('OPENAI_MODEL', 'gpt-5.5')}"
             )
         except AIReportError:
-            ai_error = (
-                "The AI report was unavailable, so FinSight preserved the full "
-                "analytical template report."
-            )
+            ai_error = text(language, "ai_fallback")
 
     currency = profile.get("currency")
     financial_currency = profile.get("financial_currency") or currency
@@ -1058,7 +1224,8 @@ def show_dashboard(ticker: str, period: str) -> None:
     st.markdown(
         f"""
         <section class="result-header">
-            <div class="eyebrow">Research workspace · {html.escape(ticker)}</div>
+            <div class="eyebrow">{html.escape(text(language, "research_workspace"))}
+                · {html.escape(ticker)}</div>
             <h2>{html.escape(company_name)}</h2>
             <p>{html.escape(str(profile['sector']))} &nbsp;·&nbsp;
                {html.escape(str(profile['industry']))} &nbsp;·&nbsp;
@@ -1068,126 +1235,141 @@ def show_dashboard(ticker: str, period: str) -> None:
         unsafe_allow_html=True,
     )
 
-    render_metric_cards(profile, history, risk, health, risk_classification)
+    render_metric_cards(
+        profile, history, risk, health, risk_classification, language
+    )
     st.plotly_chart(
-        create_price_chart(history, company_name, currency),
+        create_price_chart(history, company_name, currency, period, language),
         width="stretch",
-        config={"displaylogo": False, "responsive": True},
+        config={
+            "displayModeBar": False,
+            "responsive": True,
+            "scrollZoom": False,
+            "staticPlot": False,
+        },
     )
 
     overview_tab, financial_tab, risk_tab, news_tab, report_tab = st.tabs(
-        ["Overview", "Financials", "Risk Analysis", "News", "Research Report"]
+        [
+            text(language, "overview"),
+            text(language, "financials"),
+            text(language, "risk_analysis"),
+            text(language, "news"),
+            text(language, "research_report"),
+        ]
     )
 
     with overview_tab:
         left, right = st.columns([1, 1], gap="large")
         with left:
-            st.markdown("### Company overview")
+            st.markdown(f"### {text(language, 'company_overview')}")
             st.markdown(
                 f"""
-                **Ticker:** {ticker}  
-                **Exchange:** {profile['exchange']}  
-                **Sector:** {profile['sector']}  
-                **Industry:** {profile['industry']}  
-                **Country:** {profile['country']}  
-                **Trading currency:** {currency or 'Unavailable'}
+                **{text(language, 'ticker')}:** {ticker}  
+                **{text(language, 'exchange')}:** {profile['exchange']}  
+                **{text(language, 'sector')}:** {profile['sector']}  
+                **{text(language, 'industry')}:** {profile['industry']}  
+                **{text(language, 'country')}:** {profile['country']}  
+                **{text(language, 'trading_currency')}:** {currency or text(language, 'unavailable')}
                 """
             )
             website = profile.get("website")
             if website and str(website).startswith(("http://", "https://")):
-                st.link_button("Visit company website ↗", str(website))
+                st.link_button(text(language, "visit_website"), str(website))
         with right:
-            st.markdown("### Business model")
+            st.markdown(f"### {text(language, 'business_model')}")
             st.write(profile["business_summary"])
-            st.caption(
-                "The summary is supplied by Yahoo Finance. Segment-level revenue "
-                "data may not be available from the free source."
-            )
+            st.caption(text(language, "summary_source"))
 
     with financial_tab:
-        st.markdown("### Latest annual financial snapshot")
+        st.markdown(f"### {text(language, 'annual_snapshot')}")
         metric_columns = st.columns(5)
         values = [
-            ("Revenue", financials.get("revenue")),
-            ("Net income", financials.get("net_income")),
-            ("Total assets", financials.get("total_assets")),
-            ("Total debt", financials.get("total_debt")),
-            ("Operating cash flow", financials.get("operating_cash_flow")),
+            (text(language, "revenue"), financials.get("revenue")),
+            (text(language, "net_income"), financials.get("net_income")),
+            (text(language, "total_assets"), financials.get("total_assets")),
+            (text(language, "total_debt"), financials.get("total_debt")),
+            (
+                text(language, "operating_cash_flow"),
+                financials.get("operating_cash_flow"),
+            ),
         ]
         for column, (label, value) in zip(metric_columns, values):
             column.metric(label, format_money(value, financial_currency))
 
-        st.markdown("### Key financial ratios")
+        st.markdown(f"### {text(language, 'key_financial_ratios')}")
         ratio_columns = st.columns(5)
         ratio_values = [
-            ("Net margin", format_percent(ratios.get("net_profit_margin"))),
-            ("Debt / assets", format_percent(ratios.get("debt_to_assets"))),
-            ("Return on equity", format_percent(ratios.get("return_on_equity"))),
-            ("Current ratio", format_ratio(ratios.get("current_ratio"))),
-            ("Revenue growth", format_percent(ratios.get("revenue_growth"))),
+            (
+                text(language, "net_margin"),
+                format_percent(ratios.get("net_profit_margin")),
+            ),
+            (
+                text(language, "debt_assets"),
+                format_percent(ratios.get("debt_to_assets")),
+            ),
+            (text(language, "roe"), format_percent(ratios.get("return_on_equity"))),
+            (
+                text(language, "current_ratio"),
+                format_ratio(ratios.get("current_ratio")),
+            ),
+            (
+                text(language, "revenue_growth"),
+                format_percent(ratios.get("revenue_growth")),
+            ),
         ]
         for column, (label, value) in zip(ratio_columns, ratio_values):
             column.metric(label, value)
 
-        with st.expander("How to read these ratios", expanded=True):
-            st.markdown(
-                """
-                - **Net margin** shows how much revenue remains as net income.
-                - **Debt-to-assets** shows how much of the asset base is financed by debt.
-                - **Return on equity** measures net income relative to shareholder equity.
-                - **Current ratio** compares short-term assets with short-term liabilities.
-                - **Revenue growth** compares the latest annual revenue with the previous year.
+        with st.expander(text(language, "ratio_help"), expanded=True):
+            st.markdown(text(language, "ratio_help_text"))
 
-                Ratios are most useful when compared with several years of history and
-                similar companies. `N/A` means the free data source did not provide the inputs.
-                """
-            )
-
-        st.markdown("### Health score explanation")
+        st.markdown(f"### {text(language, 'score_explanation')}")
         st.progress(int(health["score"]) / 100)
         st.caption(
-            f"{health['score']}/100 · {risk_classification['label']} screening classification"
+            f"{health['score']}/100 · {localized_risk_level} "
+            f"{text(language, 'screening_classification')}"
         )
         for explanation in health["explanations"]:
-            st.write(f"• {explanation}")
+            st.write(f"• {translate_health_explanation(explanation, language)}")
 
     with risk_tab:
         st.markdown(
             f"""
-            <h3 style="margin-bottom:.35rem">Risk profile
+            <h3 style="margin-bottom:.35rem">{html.escape(text(language, "risk_profile"))}
                 <span class="risk-pill {risk_classification['css_class']}">
-                    {html.escape(risk_classification['label'])}
+                    {html.escape(localized_risk_level)}
                 </span>
             </h3>
             """,
             unsafe_allow_html=True,
         )
-        st.caption(
-            "The label follows the requested score bands. It is not a prediction "
-            "of loss or a substitute for personal risk assessment."
-        )
+        st.caption(text(language, "risk_note"))
         render_risk_cards(risk_breakdown)
 
         indicators = st.columns(4)
         indicators[0].metric(
-            "Volatility", format_percent(risk.get("annualized_volatility"))
+            text(language, "volatility"),
+            format_percent(risk.get("annualized_volatility")),
         )
         indicators[1].metric(
-            "Maximum drawdown", format_percent(risk.get("maximum_drawdown"))
+            text(language, "maximum_drawdown"),
+            format_percent(risk.get("maximum_drawdown")),
         )
-        indicators[2].metric(
-            "Beta", format_ratio(risk.get("beta"))
-        )
+        indicators[2].metric(text(language, "beta"), format_ratio(risk.get("beta")))
         indicators[3].metric(
-            "Period return", format_percent(risk.get("period_return"))
+            text(language, "period_return"),
+            format_percent(risk.get("period_return")),
         )
 
-        st.markdown("### Investor watchlist")
-        for index, item in enumerate(build_investor_watchlist(profile, ratios), start=1):
+        st.markdown(f"### {text(language, 'investor_watchlist')}")
+        for index, item in enumerate(
+            build_investor_watchlist(profile, ratios, language=language), start=1
+        ):
             st.markdown(f"**{index}.** {item}")
 
     with news_tab:
-        render_news(news, sentiment)
+        render_news(news, sentiment, language)
 
     with report_tab:
         st.caption(report_source)
@@ -1196,24 +1378,62 @@ def show_dashboard(ticker: str, period: str) -> None:
         with st.container(border=True, key="report_article"):
             st.markdown(report_markdown.replace("$", "&#36;"))
         st.download_button(
-            "Download full research report",
+            text(language, "download_full_report"),
             data=report_markdown,
-            file_name=f"finsight_ai_report_{ticker}.md",
+            file_name=f"finsight_ai_report_{ticker}_{language}.md",
             mime="text/markdown",
             width="stretch",
             on_click="ignore",
         )
 
 
+if "language_choice" not in st.session_state:
+    st.session_state.language_choice = "English"
+
+language_column_left, language_column = st.columns([5, 1.35])
+with language_column:
+    selected_language = st.selectbox(
+        "Language / 语言",
+        ["English", "中文"],
+        key="language_choice",
+    )
+
+language = "zh" if selected_language == "中文" else "en"
+
+if language == "zh":
+    st.markdown(
+        """
+        <style>
+        .hero-zh .student-badge,
+        .hero-zh .hero-subtitle,
+        .hero-zh .hero-description,
+        .metric-label,
+        .eyebrow,
+        [data-testid="stForm"] label {
+            letter-spacing: 0 !important;
+            text-transform: none !important;
+        }
+
+        .hero-zh .hero-title { letter-spacing: -0.035em; }
+        .hero-zh .hero-subtitle { line-height: 1.25; font-weight: 600; }
+
+        .st-key-report_article p,
+        .st-key-report_article li {
+            line-height: 1.75 !important;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
 st.markdown(
-    """
-    <section class="hero">
-        <div class="student-badge">Made by a FinTech Student</div>
-        <h1>FinSight AI</h1>
-        <p class="subtitle">AI-powered financial research assistant for global stocks.</p>
-        <p class="description">
-            Analyze stocks, financial performance, risks, and investor watchlists
-            in one clean dashboard.
+    f"""
+    <section class="hero {'hero-zh' if language == 'zh' else 'hero-en'}">
+        <div class="student-badge">{html.escape(text(language, "student_badge"))}</div>
+        <h1 class="hero-title">FinSight AI</h1>
+        <p class="hero-subtitle">{html.escape(text(language, "subtitle"))}</p>
+        <p class="hero-description">
+            {html.escape(text(language, "description"))}
         </p>
     </section>
     """,
@@ -1221,48 +1441,60 @@ st.markdown(
 )
 
 with st.form("ticker_form"):
-    input_column, period_column, button_column = st.columns([2, 1, 1])
-    ticker_input = input_column.text_input(
-        "Stock ticker",
-        value="AAPL",
-        placeholder="Try AAPL, 1155.KL, or 0700.HK",
+    input_column, period_column, button_column = st.columns(
+        [1, 1, 1], gap="medium", vertical_alignment="bottom"
     )
-    period_label = period_column.selectbox(
-        "Price history",
-        ["1 Year", "2 Years", "5 Years", "10 Years", "Maximum"],
+    ticker_input = input_column.text_input(
+        text(language, "stock_ticker"),
+        value=st.session_state.get("last_ticker", "AAPL"),
+        placeholder=text(language, "ticker_placeholder"),
+    )
+    period = period_column.selectbox(
+        text(language, "price_history"),
+        ["1y", "2y", "5y", "10y", "max"],
         index=2,
+        format_func=lambda value: {
+            "1y": text(language, "one_year"),
+            "2y": text(language, "two_years"),
+            "5y": text(language, "five_years"),
+            "10y": text(language, "ten_years"),
+            "max": text(language, "maximum"),
+        }[value],
     )
     submitted = button_column.form_submit_button(
-        "Generate Research", width="stretch", type="primary"
+        text(language, "generate_research"), width="stretch", type="primary"
     )
-
-period_options = {
-    "1 Year": "1y",
-    "2 Years": "2y",
-    "5 Years": "5y",
-    "10 Years": "10y",
-    "Maximum": "max",
-}
 
 if submitted:
     cleaned_ticker = ticker_input.strip().upper()
     if not cleaned_ticker:
-        st.warning("Please enter a stock ticker.")
+        st.warning(text(language, "enter_ticker"))
     elif len(cleaned_ticker) > 15:
-        st.error("That ticker is too long. Please check it and try again.")
+        st.error(text(language, "ticker_too_long"))
     else:
-        try:
-            with st.spinner("Analyzing market data and generating research report..."):
-                show_dashboard(cleaned_ticker, period_options[period_label])
-        except StockDataError as error:
-            st.error(str(error))
-        except Exception:
-            st.error(
-                "FinSight could not complete this request. The market-data service "
-                "may be temporarily unavailable, so please try again shortly."
+        st.session_state.last_ticker = cleaned_ticker
+        st.session_state.last_period = period
+        st.session_state.has_research = True
+
+if st.session_state.get("has_research"):
+    try:
+        with st.spinner(text(language, "analyzing")):
+            show_dashboard(
+                st.session_state.last_ticker,
+                st.session_state.last_period,
+                language,
             )
+    except StockDataError as error:
+        if language == "zh":
+            st.error(text(language, "request_error"))
+        else:
+            st.error(str(error))
+    except Exception:
+        st.error(text(language, "request_error"))
 
 st.markdown(
-    '<div class="footer-note">FinSight AI | Made by a FinTech Student | Educational Use Only</div>',
+    f'<div class="footer-note">FinSight AI | '
+    f'{html.escape(text(language, "student_badge"))} | '
+    f'{html.escape(text(language, "educational_use"))}</div>',
     unsafe_allow_html=True,
 )
