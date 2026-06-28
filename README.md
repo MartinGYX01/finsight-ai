@@ -36,6 +36,8 @@ simplified Chinese.
 - Useful 900+ word local template report when no API key is available
 - Return on equity and current ratio when statement data is available
 - Six-category risk breakdown and Low / Moderate / High risk badge
+- Volatility Outlook with historical-volatility cards, investor action plan,
+  and forward-looking scenario analysis
 - Five-item investor watchlist and educational suitability analysis
 - Recent Yahoo Finance headlines with publisher, date, link, and transparent
   keyword-based sentiment
@@ -47,8 +49,10 @@ simplified Chinese.
 1. **Overview** — profile, business summary, website, sector, and industry
 2. **Financials** — annual metrics, ratios, health score, and explanations
 3. **Risk Analysis** — risk badge, six-part breakdown, and investor watchlist
-4. **News** — available Yahoo headlines and rule-based sentiment
-5. **Research Report** — full article-style report and download button
+4. **Volatility Outlook** — historical volatility, drawdown, trend, action plan,
+   and scenario analysis
+5. **News** — available Yahoo headlines and rule-based sentiment
+6. **Research Report** — full article-style report and download button
 
 ## Report sections
 
@@ -61,15 +65,18 @@ Both AI and template reports cover:
 5. Financial Performance
 6. Key Financial Ratios
 7. Risk Analysis
-8. News / Market Sentiment
-9. Bullish Case
-10. Bearish Case
-11. Investor Watchlist
-12. Suitability Analysis
-13. Final Neutral View
-14. Disclaimer
+8. Volatility Outlook
+9. Investor Action Plan
+10. Forward-Looking Scenarios
+11. News / Market Sentiment
+12. Bullish Case
+13. Bearish Case
+14. Investor Watchlist
+15. Suitability Analysis
+16. Final Neutral View
+17. Disclaimer
 
-FinSight never provides a direct buy, sell, or hold recommendation.
+FinSight never provides personalized trading recommendations.
 
 When **中文** is selected, every template section is generated directly in
 simplified Chinese even when no OpenAI key is configured. Company names, stock

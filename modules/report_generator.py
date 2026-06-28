@@ -7,45 +7,44 @@ from typing import Any, Mapping
 
 import pandas as pd
 
+from modules.formatting import (
+    format_currency,
+    format_percent,
+    format_price,
+    format_ratio,
+)
+
 
 DISCLAIMER = (
     "This report is generated for educational purposes only and does not "
-    "constitute financial advice."
+    "constitute financial advice. Historical volatility and past performance "
+    "do not guarantee future results."
 )
-DISCLAIMER_ZH = "本报告仅用于教育和学习目的，不构成任何投资建议。"
+DISCLAIMER_ZH = "本报告仅用于教育和学习目的，不构成任何投资建议。历史波动和过去表现并不保证未来结果。"
 
 
 def _percent(value: float | None) -> str:
     """Format an optional decimal value for report sentences."""
-    return f"{value:.1%}" if value is not None else "unavailable"
+    return format_percent(value) if value is not None else "unavailable"
 
 
 def _number(value: float | None) -> str:
     """Format an optional ratio that is not a percentage."""
-    return f"{value:.2f}" if value is not None else "unavailable"
+    return format_ratio(value) if value is not None else "unavailable"
 
 
 def _money(value: float | None, currency: str | None = None) -> str:
     """Format an optional monetary value with its known currency code."""
     if value is None:
         return "unavailable"
-    prefix = f"{currency} " if currency else ""
-    absolute_value = abs(value)
-    if absolute_value >= 1_000_000_000_000:
-        return f"{prefix}{value / 1_000_000_000_000:,.2f} trillion"
-    if absolute_value >= 1_000_000_000:
-        return f"{prefix}{value / 1_000_000_000:,.1f} billion"
-    if absolute_value >= 1_000_000:
-        return f"{prefix}{value / 1_000_000:,.1f} million"
-    return f"{prefix}{value:,.0f}"
+    return format_currency(value, currency)
 
 
 def _price(value: float | None, currency: str | None = None) -> str:
     """Format a stock price without rounding away useful decimals."""
     if value is None:
         return "unavailable"
-    prefix = f"{currency} " if currency else ""
-    return f"{prefix}{value:,.2f}"
+    return format_price(value, currency)
 
 
 def _business_style(profile: Mapping[str, Any]) -> tuple[str, str]:
@@ -252,35 +251,26 @@ def build_investor_watchlist(
 
 def _percent_zh(value: float | None) -> str:
     """Format an optional percentage for the Chinese fallback report."""
-    return f"{value:.1%}" if value is not None else "暂无数据"
+    return format_percent(value, language="zh") if value is not None else "暂无数据"
 
 
 def _number_zh(value: float | None) -> str:
     """Format an optional ratio for the Chinese fallback report."""
-    return f"{value:.2f}" if value is not None else "暂无数据"
+    return format_ratio(value, language="zh") if value is not None else "暂无数据"
 
 
 def _money_zh(value: float | None, currency: str | None = None) -> str:
     """Format money without changing the source currency or value."""
     if value is None:
         return "暂无数据"
-    prefix = f"{currency} " if currency else ""
-    absolute_value = abs(value)
-    if absolute_value >= 1_000_000_000_000:
-        return f"{prefix}{value / 1_000_000_000_000:,.2f} 万亿"
-    if absolute_value >= 1_000_000_000:
-        return f"{prefix}{value / 1_000_000_000:,.1f} 十亿"
-    if absolute_value >= 1_000_000:
-        return f"{prefix}{value / 1_000_000:,.1f} 百万"
-    return f"{prefix}{value:,.0f}"
+    return format_currency(value, currency, language="zh")
 
 
 def _price_zh(value: float | None, currency: str | None = None) -> str:
     """Format a stock price for the Chinese fallback report."""
     if value is None:
         return "暂无数据"
-    prefix = f"{currency} " if currency else ""
-    return f"{prefix}{value:,.2f}"
+    return format_price(value, currency, language="zh")
 
 
 def _performance_label_zh(
@@ -363,6 +353,117 @@ def _valuation_view_zh(profile: Mapping[str, Any]) -> str:
     else:
         interpretation = "非正数市盈率可能反映亏损或异常盈利，不宜单独作为估值信号。"
     return f"Yahoo Finance 显示，{'，'.join(values)}。{interpretation}"
+
+
+def _volatility_level(value: str | None, language: str = "en") -> str:
+    labels = {
+        "Low": "低" if language == "zh" else "Low",
+        "Moderate": "中等" if language == "zh" else "Moderate",
+        "High": "高" if language == "zh" else "High",
+        "Unknown": "未知" if language == "zh" else "Unknown",
+    }
+    return labels.get(str(value or "Unknown"), labels["Unknown"])
+
+
+def _trend_label(value: str | None, language: str = "en") -> str:
+    if language == "zh":
+        return {"Upward": "上行", "Downward": "下行", "Sideways": "横盘"}.get(
+            str(value or ""), "未知"
+        )
+    return {"Upward": "upward", "Downward": "downward", "Sideways": "sideways"}.get(
+        str(value or ""), "unknown"
+    )
+
+
+def _volatility_report_sections(
+    risk: Mapping[str, float | str | None],
+    currency: str | None,
+    language: str = "en",
+) -> tuple[str, str, str]:
+    """Build report sections for volatility outlook and scenario analysis."""
+    level = _volatility_level(str(risk.get("volatility_level") or "Unknown"), language)
+    trend = _trend_label(str(risk.get("recent_trend") or "Unknown"), language)
+    volatility = _percent_zh(risk.get("annualized_volatility")) if language == "zh" else _percent(risk.get("annualized_volatility"))
+    drawdown = _percent_zh(risk.get("maximum_drawdown")) if language == "zh" else _percent(risk.get("maximum_drawdown"))
+    position = _percent_zh(risk.get("current_price_position")) if language == "zh" else _percent(risk.get("current_price_position"))
+    period_high = _price_zh(risk.get("period_high"), currency) if language == "zh" else _price(risk.get("period_high"), currency)
+    period_low = _price_zh(risk.get("period_low"), currency) if language == "zh" else _price(risk.get("period_low"), currency)
+    latest = _price_zh(risk.get("latest_price"), currency) if language == "zh" else _price(risk.get("latest_price"), currency)
+
+    if language == "zh":
+        outlook = (
+            f"所选周期的历史年化波动率为 **{volatility}**，波动等级为 **{level}**。"
+            f"最大回撤为 **{drawdown}**，区间最高价为 **{period_high}**，区间最低价为 "
+            f"**{period_low}**，最新收盘价为 **{latest}**。当前价格在所选区间中的位置约为 "
+            f"**{position}**，近期趋势为 **{trend}**。\n\n"
+            "波动分析基于历史价格数据，应理解为情景化风险分析，而不是确定性的未来预测。"
+        )
+        action_items: list[str] = []
+        if risk.get("volatility_level") == "High":
+            action_items.extend(
+                [
+                    "如果波动性继续较高，投资者需要更强的风险承受能力，并关注回撤风险和新闻催化因素。",
+                    "从教育研究角度看，仓位大小、资金期限和风险预算需要与历史波动特征相匹配。",
+                ]
+            )
+        elif risk.get("volatility_level") == "Moderate":
+            action_items.extend(
+                [
+                    "当前波动性处于中等区间，投资者可以继续跟踪趋势、盈利、利润率、现金流和宏观因素。",
+                    "价格波动仍可能快速变化，因此应把市场表现与基本面变化一起观察。",
+                ]
+            )
+        else:
+            action_items.append("投资者可以继续关注基本面、估值、行业风险和突发消息。")
+        if risk.get("maximum_drawdown") is not None and risk.get("maximum_drawdown") <= -0.25:
+            action_items.append("历史最大回撤较明显，说明该股票曾出现较大阶段性下行压力。")
+        action_plan = "\n".join(f"- {item}" for item in action_items)
+        scenarios = (
+            "- **基准情景：** 假设波动性维持在近期历史水平附近。投资者可以继续关注基本面、盈利表现、利润率、现金流和市场情绪。\n"
+            "- **积极情景：** 如果盈利改善、利润率提升、积极新闻增加、行业情绪转好或宏观环境改善，可能有助于缓解下行压力。但这不代表股价一定上涨。\n"
+            "- **谨慎情景：** 如果盈利走弱、利润率承压、利率上升、监管风险增加、需求疲弱或负面新闻出现，可能提高波动性和回撤风险。但这不代表股价一定下跌。"
+        )
+        return outlook, action_plan, scenarios
+
+    outlook = (
+        f"Historical annualized volatility for the selected period is **{volatility}**, "
+        f"which maps to a **{level}** volatility level. Maximum drawdown was **{drawdown}**. "
+        f"The selected-period high was **{period_high}**, the selected-period low was "
+        f"**{period_low}**, and the latest close was **{latest}**. The latest close sits "
+        f"around **{position}** of the selected range, and the recent trend is **{trend}**.\n\n"
+        "Volatility analysis is based on historical price data. It should be interpreted "
+        "as scenario-based risk analysis, not a guaranteed forecast."
+    )
+    action_items = []
+    if risk.get("volatility_level") == "High":
+        action_items.extend(
+            [
+                "If volatility remains high, investors may need stronger risk tolerance and closer monitoring of drawdown risk and news catalysts.",
+                "From an educational research perspective, position size, time horizon, and risk budget should be considered alongside historical volatility.",
+            ]
+        )
+    elif risk.get("volatility_level") == "Moderate":
+        action_items.extend(
+            [
+                "With moderate historical volatility, investors may want to monitor trend, earnings, margins, cash flow, and macro factors together.",
+                "Price behavior can still change quickly, so market movement should be compared with changes in fundamentals.",
+            ]
+        )
+    else:
+        action_items.append(
+            "Investors may continue monitoring fundamentals, valuation, sector risk, and news even when historical volatility is lower."
+        )
+    if risk.get("maximum_drawdown") is not None and risk.get("maximum_drawdown") <= -0.25:
+        action_items.append(
+            "The historical maximum drawdown was meaningful, showing how the stock has behaved under pressure."
+        )
+    action_plan = "\n".join(f"- {item}" for item in action_items)
+    scenarios = (
+        "- **Base Case:** Assumes volatility remains near its recent historical level. Investors may monitor fundamentals, earnings, margins, cash flow, and market sentiment.\n"
+        "- **Bullish Scenario:** Stronger earnings, improved margins, positive news, better sector sentiment, or supportive macro conditions could reduce downside pressure. This should not be presented as a guaranteed price increase.\n"
+        "- **Bearish Scenario:** Weak earnings, margin pressure, higher interest rates, regulatory risks, weak demand, or negative news could increase volatility and drawdown risk. This should not be presented as a guaranteed decline."
+    )
+    return outlook, action_plan, scenarios
 
 
 def _generate_chinese_report(
@@ -458,6 +559,9 @@ def _generate_chinese_report(
         + "\n\n"
         + _valuation_view_zh(profile)
     )
+    volatility_outlook, action_plan, scenarios = _volatility_report_sections(
+        risk, trading_currency, language="zh"
+    )
 
     if news:
         headline_lines = []
@@ -537,6 +641,9 @@ def _generate_chinese_report(
             ("财务表现", financial_performance),
             ("关键财务比率", ratio_analysis),
             ("风险分析", risk_analysis),
+            ("波动展望", volatility_outlook),
+            ("投资者应对建议", action_plan),
+            ("未来波动情景", scenarios),
             ("新闻与市场情绪", news_text),
             ("积极因素", "\n".join(f"- {item}" for item in bullish_factors[:5])),
             ("谨慎因素", "\n".join(f"- {item}" for item in bearish_factors[:5])),
@@ -547,7 +654,7 @@ def _generate_chinese_report(
                 f"从教育研究角度看，{company_name} 的现有财务表现{performance}，并对应"
                 f"“{risk_level}”筛选分类。公司的潜在优势需要与风险构成、估值背景、行业环境"
                 "及免费数据缺口一并权衡。研究者可持续关注上述事项，并比较多年公司文件后形成"
-                "独立判断。FinSight 不提供买入、卖出或持有建议。",
+                "独立判断。FinSight 不提供个性化交易建议。",
             ),
             ("免责声明", DISCLAIMER_ZH),
         ]
@@ -686,6 +793,9 @@ def generate_research_report(
         + "\n\n"
         + _valuation_view(profile)
     )
+    volatility_outlook, action_plan, scenarios = _volatility_report_sections(
+        risk, trading_currency, language="en"
+    )
 
     if news:
         headline_lines = []
@@ -748,6 +858,9 @@ def generate_research_report(
             ("Financial Performance", financial_performance),
             ("Key Financial Ratios", ratio_analysis),
             ("Risk Analysis", risk_analysis),
+            ("Volatility Outlook", volatility_outlook),
+            ("Investor Action Plan", action_plan),
+            ("Forward-Looking Scenarios", scenarios),
             ("News / Market Sentiment", news_text),
             ("Bullish Case", bullish),
             ("Bearish Case", bearish),
@@ -763,7 +876,7 @@ def generate_research_report(
                 "valuation context, sector conditions, and gaps in free-source data. "
                 "Investors may want to monitor the watchlist above and compare multiple "
                 "years of filings before forming an independent view. FinSight does not "
-                "provide a buy, sell, or hold recommendation.",
+                "provide personalized trading recommendations.",
             ),
             ("Disclaimer", DISCLAIMER),
         ]

@@ -20,6 +20,12 @@ from modules.data_fetcher import (
     fetch_stock_history,
 )
 from modules.financial_ratios import calculate_financial_ratios
+from modules.formatting import (
+    format_currency,
+    format_percent as shared_format_percent,
+    format_price,
+    format_ratio as shared_format_ratio,
+)
 from modules.i18n import (
     risk_label,
     sentiment_label,
@@ -38,6 +44,7 @@ from modules.risk_analysis import (
     calculate_financial_health_score,
     classify_risk_level,
 )
+from modules.volatility_analysis import build_volatility_outlook
 
 
 st.set_page_config(
@@ -303,9 +310,21 @@ body, .stApp {
     margin: 0.8rem 0 1.8rem;
 }
 
+.metric-grid.cols-5 {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.metric-grid.cols-3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.value-card {
+    min-height: 132px;
+}
+
 .premium-card {
     position: relative;
-    overflow: hidden;
+    overflow: visible;
     min-height: 150px;
     padding: 1.25rem;
     border: 1px solid var(--line);
@@ -337,13 +356,16 @@ body, .stApp {
 .metric-value {
     margin-top: 0.65rem;
     color: var(--ink);
-    font-size: clamp(2.1rem, 3.2vw, 2.85rem);
+    font-size: clamp(1.75rem, 2.45vw, 2.25rem);
     font-weight: 650;
     letter-spacing: -0.04em;
-    line-height: 1.12;
+    line-height: 1.08;
     max-width: 100%;
-    overflow-wrap: anywhere;
-    word-break: break-word;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    overflow-wrap: normal;
+    word-break: normal;
     font-variant-numeric: tabular-nums;
 }
 
@@ -481,6 +503,7 @@ body, .stApp {
     background: #ffffff;
     box-shadow: 0 4px 14px rgba(24, 24, 27, 0.03);
     transition: transform 0.22s ease, box-shadow 0.22s ease;
+    overflow: visible !important;
 }
 
 [data-testid="stMetric"] * {
@@ -502,6 +525,11 @@ body, .stApp {
     -webkit-text-fill-color: #18181b !important;
     opacity: 1 !important;
     font-weight: 650 !important;
+    white-space: normal !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+    overflow-wrap: normal !important;
+    word-break: normal !important;
 }
 
 [data-testid="stMetric"]:hover {
@@ -608,6 +636,8 @@ body, .stApp {
     .hero-subtitle { max-width: 680px; }
 
     .metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .metric-grid.cols-5,
+    .metric-grid.cols-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 
     .st-key-report_article {
         max-width: 820px;
@@ -695,6 +725,9 @@ body, .stApp {
         gap: 0.8rem;
         margin-bottom: 1.25rem;
     }
+
+    .metric-grid.cols-5,
+    .metric-grid.cols-3 { grid-template-columns: 1fr; }
 
     .premium-card {
         width: 100%;
@@ -910,35 +943,45 @@ def format_money(
     value: float | None,
     currency: str | None = None,
     compact: bool = True,
+    language: str = "en",
 ) -> str:
     """Turn a number into a readable currency-aware value."""
-    if value is None or pd.isna(value):
-        return "N/A"
-    prefix = f"{currency} " if currency else ""
     if not compact:
-        return f"{prefix}{value:,.2f}"
-    absolute_value = abs(value)
-    if absolute_value >= 1_000_000_000_000:
-        return f"{prefix}{value / 1_000_000_000_000:,.2f}T"
-    if absolute_value >= 1_000_000_000:
-        return f"{prefix}{value / 1_000_000_000:,.2f}B"
-    if absolute_value >= 1_000_000:
-        return f"{prefix}{value / 1_000_000:,.2f}M"
-    return f"{prefix}{value:,.0f}"
+        return format_price(value, currency, language)
+    return format_currency(value, currency, language)
 
 
-def format_percent(value: float | None) -> str:
+def format_percent(value: float | None, language: str = "en") -> str:
     """Format a decimal ratio such as 0.15 as 15.00%."""
-    if value is None or pd.isna(value):
-        return "N/A"
-    return f"{value:.2%}"
+    return shared_format_percent(value, language)
 
 
-def format_ratio(value: float | None) -> str:
+def format_ratio(value: float | None, language: str = "en") -> str:
     """Format a non-percentage financial ratio."""
-    if value is None or pd.isna(value):
-        return "N/A"
-    return f"{value:.2f}"
+    return shared_format_ratio(value, language)
+
+
+def render_value_cards(
+    items: list[tuple[str, str, str | None]],
+    columns: int = 4,
+) -> None:
+    """Render non-truncating metric cards for numbers and ratios."""
+    cards = "".join(
+        '<div class="premium-card value-card">'
+        f'<div class="metric-label">{html.escape(label)}</div>'
+        f'<div class="metric-value">{html.escape(value)}</div>'
+        + (
+            f'<div class="metric-note">{html.escape(note)}</div>'
+            if note
+            else ""
+        )
+        + "</div>"
+        for label, value, note in items
+    )
+    st.markdown(
+        f'<div class="metric-grid value-grid cols-{columns}">{cards}</div>',
+        unsafe_allow_html=True,
+    )
 
 
 def create_price_chart(
@@ -1026,18 +1069,23 @@ def render_metric_cards(
     cards = [
         (
             text(language, "market_cap"),
-            format_money(profile.get("market_cap"), currency),
+            format_money(profile.get("market_cap"), currency, language=language),
             text(language, "reported_yahoo"),
         ),
         (
             text(language, "latest_close"),
-            format_money(float(history["Close"].iloc[-1]), currency, compact=False),
+            format_money(
+                float(history["Close"].iloc[-1]),
+                currency,
+                compact=False,
+                language=language,
+            ),
             f"{text(language, 'trading_currency')} · "
             f"{currency or text(language, 'unavailable')}",
         ),
         (
             text(language, "period_return"),
-            format_percent(risk.get("period_return")),
+            format_percent(risk.get("period_return"), language),
             text(language, "adjusted_close"),
         ),
     ]
@@ -1067,6 +1115,177 @@ def render_metric_cards(
         f'<div class="metric-grid">{card_html}{health_card}</div>',
         unsafe_allow_html=True,
     )
+
+
+def localize_trend(trend: str, language: str) -> str:
+    """Translate the transparent recent-trend label."""
+    trend_key = {
+        "Upward": "upward",
+        "Downward": "downward",
+        "Sideways": "sideways",
+    }.get(trend, "unknown")
+    return text(language, trend_key)
+
+
+def build_investor_action_plan(
+    outlook: dict[str, Any],
+    language: str,
+) -> list[str]:
+    """Build educational volatility guidance without trading recommendations."""
+    volatility_level = outlook.get("volatility_level")
+    drawdown = outlook.get("maximum_drawdown")
+    position = outlook.get("current_price_position")
+    trend = outlook.get("recent_trend")
+
+    if language == "zh":
+        items: list[str] = []
+        if volatility_level == "High":
+            items.append("如果波动性继续较高，投资者需要更强的风险承受能力，并关注回撤风险和新闻催化因素。")
+            items.append("从教育研究角度看，仓位大小、资金期限和风险预算需要与历史波动特征相匹配。")
+        elif volatility_level == "Moderate":
+            items.append("当前波动性处于中等区间，投资者可以继续跟踪趋势、盈利、利润率、现金流和宏观因素。")
+            items.append("价格波动仍可能快速变化，因此应把市场表现与基本面变化一起观察。")
+        elif volatility_level == "Low":
+            items.append("历史波动性相对较低，但投资者仍应关注估值、基本面、行业风险和突发消息。")
+        else:
+            items.append("当前价格数据不足，投资者可以先补充更长周期数据后再评估波动特征。")
+
+        if drawdown is not None and drawdown <= -0.25:
+            items.append("历史最大回撤较明显，说明该股票曾出现较大阶段性下行压力；过去回撤不保证未来重复，但能反映风险行为。")
+        if position is not None and position >= 0.80:
+            items.append("当前价格接近所选区间高位，投资者可以关注基本面是否支持这一价格区间及估值敏感性。")
+        elif position is not None and position <= 0.20:
+            items.append("当前价格接近所选区间低位，投资者可以观察盈利、现金流、行业情绪和修复信号。")
+        if trend == "Upward":
+            items.append("近期趋势偏上行，说明动能较强；这不代表趋势一定延续。")
+        elif trend == "Downward":
+            items.append("近期趋势偏下行，投资者可以重点观察风险信号和市场情绪变化。")
+        elif trend == "Sideways":
+            items.append("近期走势偏横盘，投资者可以关注财报、新闻或行业因素是否改变波动区间。")
+        return items
+
+    items = []
+    if volatility_level == "High":
+        items.append(
+            "If volatility remains high, investors may need stronger risk tolerance and closer monitoring of drawdown risk and news catalysts."
+        )
+        items.append(
+            "From an educational research perspective, position size, time horizon, and risk budget should be considered alongside historical volatility."
+        )
+    elif volatility_level == "Moderate":
+        items.append(
+            "With moderate historical volatility, investors may want to monitor trend, earnings, margins, cash flow, and macro factors together."
+        )
+        items.append(
+            "Price behavior can still change quickly, so market movement should be compared with changes in fundamentals."
+        )
+    elif volatility_level == "Low":
+        items.append(
+            "Lower historical volatility suggests relative price stability, but fundamentals, valuation, sector risk, and news still require monitoring."
+        )
+    else:
+        items.append(
+            "Price data is limited, so investors may want a longer data window before relying on volatility behavior."
+        )
+
+    if drawdown is not None and drawdown <= -0.25:
+        items.append(
+            "The historical maximum drawdown was meaningful; past drawdown does not guarantee future drawdown, but it shows how the stock has behaved under pressure."
+        )
+    if position is not None and position >= 0.80:
+        items.append(
+            "The latest close is near the selected-period high, so investors may monitor whether fundamentals support the current price range and valuation sensitivity."
+        )
+    elif position is not None and position <= 0.20:
+        items.append(
+            "The latest close is near the selected-period low, so investors may monitor recovery signals, profitability, cash flow, and sector sentiment."
+        )
+    if trend == "Upward":
+        items.append("Recent trend is upward, indicating positive momentum; this does not imply continuation.")
+    elif trend == "Downward":
+        items.append("Recent trend is downward, so investors may pay closer attention to risk signals and market sentiment.")
+    elif trend == "Sideways":
+        items.append("Recent trend is sideways, so investors may monitor earnings, news, or sector catalysts that could change the range.")
+    return items
+
+
+def build_scenarios(language: str) -> list[tuple[str, str]]:
+    """Return educational forward-looking scenarios, not price forecasts."""
+    if language == "zh":
+        return [
+            (
+                text(language, "base_case"),
+                "假设波动性维持在近期历史水平附近。投资者可以继续关注基本面、盈利表现、利润率、现金流和市场情绪。",
+            ),
+            (
+                text(language, "bullish_scenario"),
+                "如果盈利改善、利润率提升、积极新闻增加、行业情绪转好或宏观环境改善，可能有助于缓解下行压力。但这不代表股价一定上涨。",
+            ),
+            (
+                text(language, "bearish_scenario"),
+                "如果盈利走弱、利润率承压、利率上升、监管风险增加、需求疲弱或负面新闻出现，可能提高波动性和回撤风险。但这不代表股价一定下跌。",
+            ),
+        ]
+    return [
+        (
+            text(language, "base_case"),
+            "Assumes volatility remains near its recent historical level. Investors may monitor fundamentals, earnings, margins, cash flow, and market sentiment.",
+        ),
+        (
+            text(language, "bullish_scenario"),
+            "Stronger earnings, improved margins, positive news, better sector sentiment, or supportive macro conditions could reduce downside pressure. This should not be presented as a guaranteed price increase.",
+        ),
+        (
+            text(language, "bearish_scenario"),
+            "Weak earnings, margin pressure, higher interest rates, regulatory risks, weak demand, or negative news could increase volatility and drawdown risk. This should not be presented as a guaranteed decline.",
+        ),
+    ]
+
+
+def render_volatility_outlook(
+    outlook: dict[str, Any],
+    currency: str | None,
+    language: str,
+) -> None:
+    """Render volatility metrics, action guidance, and scenarios."""
+    level = str(outlook.get("volatility_level") or "Unknown")
+    volatility_items = [
+        (
+            text(language, "annualized_volatility"),
+            format_percent(outlook.get("annualized_volatility"), language),
+            text(language, "volatility_note"),
+        ),
+        (
+            text(language, "maximum_drawdown"),
+            format_percent(outlook.get("maximum_drawdown"), language),
+            None,
+        ),
+        (
+            text(language, "current_price_position"),
+            format_percent(outlook.get("current_price_position"), language),
+            None,
+        ),
+        (
+            text(language, "recent_trend"),
+            localize_trend(str(outlook.get("recent_trend")), language),
+            None,
+        ),
+        (
+            text(language, "volatility_level"),
+            risk_label(language, level),
+            None,
+        ),
+    ]
+    render_value_cards(volatility_items, columns=5)
+    st.caption(text(language, "volatility_note"))
+
+    st.markdown(f"### {text(language, 'investor_action_plan')}")
+    for item in build_investor_action_plan(outlook, language):
+        st.markdown(f"- {item}")
+
+    st.markdown(f"### {text(language, 'forward_looking_scenarios')}")
+    for heading, body in build_scenarios(language):
+        st.markdown(f"**{heading}**  \n{body}")
 
 
 def render_risk_cards(risk_breakdown: list[dict[str, str]]) -> None:
@@ -1182,6 +1401,8 @@ def show_dashboard(ticker: str, period: str, language: str) -> None:
     profile, history, financials, news = load_stock_data(ticker, period)
     ratios = calculate_financial_ratios(financials)
     risk = analyze_risk(history, profile.get("beta"))
+    volatility_outlook = build_volatility_outlook(history)
+    risk.update(volatility_outlook)
     health = calculate_financial_health_score(ratios, financials, history)
     risk_classification = classify_risk_level(int(health["score"]))
     risk_breakdown = translate_risk_breakdown(
@@ -1265,12 +1486,41 @@ def show_dashboard(ticker: str, period: str, language: str) -> None:
             "staticPlot": False,
         },
     )
+    chart_summary_items = [
+        (
+            text(language, "start_price"),
+            format_price(volatility_outlook.get("starting_price"), currency, language),
+            None,
+        ),
+        (
+            text(language, "latest_close"),
+            format_price(volatility_outlook.get("latest_price"), currency, language),
+            None,
+        ),
+        (
+            text(language, "period_return"),
+            format_percent(volatility_outlook.get("period_return"), language),
+            None,
+        ),
+        (
+            text(language, "highest_price"),
+            format_price(volatility_outlook.get("period_high"), currency, language),
+            None,
+        ),
+        (
+            text(language, "lowest_price"),
+            format_price(volatility_outlook.get("period_low"), currency, language),
+            None,
+        ),
+    ]
+    render_value_cards(chart_summary_items, columns=5)
 
-    overview_tab, financial_tab, risk_tab, news_tab, report_tab = st.tabs(
+    overview_tab, financial_tab, risk_tab, volatility_tab, news_tab, report_tab = st.tabs(
         [
             text(language, "overview"),
             text(language, "financials"),
             text(language, "risk_analysis"),
+            text(language, "volatility_outlook"),
             text(language, "news"),
             text(language, "research_report"),
         ]
@@ -1300,43 +1550,74 @@ def show_dashboard(ticker: str, period: str, language: str) -> None:
 
     with financial_tab:
         st.markdown(f"### {text(language, 'annual_snapshot')}")
-        metric_columns = st.columns(5)
         values = [
-            (text(language, "revenue"), financials.get("revenue")),
-            (text(language, "net_income"), financials.get("net_income")),
-            (text(language, "total_assets"), financials.get("total_assets")),
-            (text(language, "total_debt"), financials.get("total_debt")),
+            (
+                text(language, "revenue"),
+                format_money(
+                    financials.get("revenue"),
+                    financial_currency,
+                    language=language,
+                ),
+            ),
+            (
+                text(language, "net_income"),
+                format_money(
+                    financials.get("net_income"),
+                    financial_currency,
+                    language=language,
+                ),
+            ),
+            (
+                text(language, "total_assets"),
+                format_money(
+                    financials.get("total_assets"),
+                    financial_currency,
+                    language=language,
+                ),
+            ),
+            (
+                text(language, "total_debt"),
+                format_money(
+                    financials.get("total_debt"),
+                    financial_currency,
+                    language=language,
+                ),
+            ),
             (
                 text(language, "operating_cash_flow"),
-                financials.get("operating_cash_flow"),
+                format_money(
+                    financials.get("operating_cash_flow"),
+                    financial_currency,
+                    language=language,
+                ),
             ),
         ]
-        for column, (label, value) in zip(metric_columns, values):
-            column.metric(label, format_money(value, financial_currency))
+        render_value_cards([(label, value, None) for label, value in values], columns=5)
 
         st.markdown(f"### {text(language, 'key_financial_ratios')}")
-        ratio_columns = st.columns(5)
         ratio_values = [
             (
                 text(language, "net_margin"),
-                format_percent(ratios.get("net_profit_margin")),
+                format_percent(ratios.get("net_profit_margin"), language),
             ),
             (
                 text(language, "debt_assets"),
-                format_percent(ratios.get("debt_to_assets")),
+                format_percent(ratios.get("debt_to_assets"), language),
             ),
-            (text(language, "roe"), format_percent(ratios.get("return_on_equity"))),
+            (
+                text(language, "roe"),
+                format_percent(ratios.get("return_on_equity"), language),
+            ),
             (
                 text(language, "current_ratio"),
-                format_ratio(ratios.get("current_ratio")),
+                format_ratio(ratios.get("current_ratio"), language),
             ),
             (
                 text(language, "revenue_growth"),
-                format_percent(ratios.get("revenue_growth")),
+                format_percent(ratios.get("revenue_growth"), language),
             ),
         ]
-        for column, (label, value) in zip(ratio_columns, ratio_values):
-            column.metric(label, value)
+        render_value_cards([(label, value, None) for label, value in ratio_values], columns=5)
 
         with st.expander(text(language, "ratio_help"), expanded=True):
             st.markdown(text(language, "ratio_help_text"))
@@ -1364,19 +1645,30 @@ def show_dashboard(ticker: str, period: str, language: str) -> None:
         st.caption(text(language, "risk_note"))
         render_risk_cards(risk_breakdown)
 
-        indicators = st.columns(4)
-        indicators[0].metric(
-            text(language, "volatility"),
-            format_percent(risk.get("annualized_volatility")),
-        )
-        indicators[1].metric(
-            text(language, "maximum_drawdown"),
-            format_percent(risk.get("maximum_drawdown")),
-        )
-        indicators[2].metric(text(language, "beta"), format_ratio(risk.get("beta")))
-        indicators[3].metric(
-            text(language, "period_return"),
-            format_percent(risk.get("period_return")),
+        render_value_cards(
+            [
+                (
+                    text(language, "volatility"),
+                    format_percent(risk.get("annualized_volatility"), language),
+                    None,
+                ),
+                (
+                    text(language, "maximum_drawdown"),
+                    format_percent(risk.get("maximum_drawdown"), language),
+                    None,
+                ),
+                (
+                    text(language, "beta"),
+                    format_ratio(risk.get("beta"), language),
+                    None,
+                ),
+                (
+                    text(language, "period_return"),
+                    format_percent(risk.get("period_return"), language),
+                    None,
+                ),
+            ],
+            columns=4,
         )
 
         st.markdown(f"### {text(language, 'investor_watchlist')}")
@@ -1384,6 +1676,10 @@ def show_dashboard(ticker: str, period: str, language: str) -> None:
             build_investor_watchlist(profile, ratios, language=language), start=1
         ):
             st.markdown(f"**{index}.** {item}")
+
+    with volatility_tab:
+        st.markdown(f"### {text(language, 'volatility_outlook')}")
+        render_volatility_outlook(volatility_outlook, currency, language)
 
     with news_tab:
         render_news(news, sentiment, language)
@@ -1447,7 +1743,6 @@ st.markdown(
     <section class="hero {'hero-zh' if language == 'zh' else 'hero-en'}">
         <div class="student-badge">{html.escape(text(language, "student_badge"))}</div>
         <h1 class="hero-title">FinSight AI</h1>
-        <p class="hero-subtitle">{html.escape(text(language, "subtitle"))}</p>
     </section>
     """,
     unsafe_allow_html=True,
@@ -1457,26 +1752,29 @@ with st.form("ticker_form"):
     input_column, period_column, button_column = st.columns(
         [1, 1, 1], gap="medium", vertical_alignment="bottom"
     )
-    ticker_input = input_column.text_input(
-        text(language, "stock_ticker"),
-        value=st.session_state.get("last_ticker", "AAPL"),
-        placeholder=text(language, "ticker_placeholder"),
-    )
-    period = period_column.selectbox(
-        text(language, "price_history"),
-        ["1y", "2y", "5y", "10y", "max"],
-        index=2,
-        format_func=lambda value: {
-            "1y": text(language, "one_year"),
-            "2y": text(language, "two_years"),
-            "5y": text(language, "five_years"),
-            "10y": text(language, "ten_years"),
-            "max": text(language, "maximum"),
-        }[value],
-    )
-    submitted = button_column.form_submit_button(
-        text(language, "generate_research"), width="stretch", type="primary"
-    )
+    with input_column:
+        ticker_input = st.text_input(
+            text(language, "stock_ticker"),
+            value=st.session_state.get("last_ticker", "AAPL"),
+            placeholder=text(language, "ticker_placeholder"),
+        )
+    with period_column:
+        period = st.selectbox(
+            text(language, "price_history"),
+            ["1y", "2y", "5y", "10y", "max"],
+            index=2,
+            format_func=lambda value: {
+                "1y": text(language, "one_year"),
+                "2y": text(language, "two_years"),
+                "5y": text(language, "five_years"),
+                "10y": text(language, "ten_years"),
+                "max": text(language, "maximum"),
+            }[value],
+        )
+    with button_column:
+        submitted = st.form_submit_button(
+            text(language, "generate_research"), width="stretch", type="primary"
+        )
 
 if submitted:
     cleaned_ticker = ticker_input.strip().upper()
